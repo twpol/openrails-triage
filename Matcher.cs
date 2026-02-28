@@ -31,6 +31,33 @@ namespace Open_Rails_Triage
 			Debug = debug;
 		}
 
+		public string[] GetFields()
+		{
+			var fields = new SortedSet<string>();
+			foreach (var field in GetFields(Config)) fields.Add(field);
+			return fields.ToArray();
+		}
+
+		static IEnumerable<string> GetFields(IConfigurationSection config)
+		{
+			foreach (var prop in config.GetChildren())
+			{
+				switch (prop.Key.Trim())
+				{
+					case "$not" when prop.Value == null:
+						foreach (var field in GetFields(prop)) yield return field;
+						break;
+					case "$and" when prop.Value == null:
+					case "$or" when prop.Value == null:
+						foreach (var child in prop.GetChildren()) foreach (var field in GetFields(child)) yield return field;
+						break;
+					default:
+						yield return prop.Key;
+						break;
+				}
+			}
+		}
+
 		public bool IsMatch(Dictionary<string, string[]> data)
 		{
 			if (Debug) Console.WriteLine($"Matcher.IsMatch({Config.Path})");

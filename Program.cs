@@ -61,6 +61,7 @@ namespace Open_Rails_Triage
 			var launchpadProject = await launchpad.GetProject(launchpadConfig["projectUrl"]);
 
 			await CommitTriage(git, gitConfig, gitHub, references);
+			await PullRequestTriage(gitHubConfig, gitHub, references);
 			await BugTriage(launchpadProject, launchpadConfig, references);
 			await SpecificationTriage(launchpadProject, launchpadConfig, references);
 			await SpecificationApprovals(launchpadProject);
@@ -120,6 +121,57 @@ namespace Open_Rails_Triage
 					Console.WriteLine();
 				}
 			}
+		}
+
+		static async Task PullRequestTriage(IConfigurationSection gitHubConfig, GitHub.Project gitHub, References references)
+		{
+			Console.WriteLine("Pull request triage");
+			Console.WriteLine("===================");
+			Console.WriteLine();
+
+			var matchStats = new Dictionary<string, int>();
+			var matcher = new Matcher(gitHubConfig.GetSection("pullRequests:filter"));
+			var formMatcher = new FormMatcher(gitHubConfig.GetSection("pullRequests:forms"));
+			await foreach (var pullRequest in gitHub.GetPullRequests())
+			{
+				references.Add(pullRequest, out var referenceTypes);
+
+				var issues = new List<string>();
+				var links = GetLinks(gitHubConfig, pullRequest.Body).ToArray();
+				var labels = pullRequest.Labels.Nodes.Select(node => node.Name).ToArray();
+				var paths = pullRequest.Files.Nodes.Select(node => node.Path).ToArray();
+				var data = new Dictionary<string, string[]>()
+				{
+					{ "number", new[] { pullRequest.Number.ToString() } },
+					{ "references", referenceTypes.ToArray() },
+					{ "links", links },
+					{ "labels", labels },
+					{ "linesAdded", new[] { pullRequest.Additions.ToString() } },
+					{ "linesDeleted", new[] { pullRequest.Deletions.ToString() } },
+					{ "paths", paths },
+				};
+				if (!matcher.IsMatch(data)) continue;
+
+				var match = formMatcher.Match(data);
+				foreach (var key in match.Successes) matchStats[key] = matchStats.GetValueOrDefault(key) + 1;
+
+				if (match.Issues.Count > 0)
+				{
+					Console.WriteLine($"- [{pullRequest.Title}]({pullRequest.Url}) {string.Join(", ", labels)} **at** {pullRequest.CreatedAt:yyyy-MM-dd HH:mm} **by** {pullRequest.Author?.Login ?? "(unknown)"}");
+					foreach (var issue in match.Issues)
+					{
+						Console.WriteLine($"  - **Issue:** {issue}");
+					}
+					Console.WriteLine();
+				}
+			}
+
+			Console.WriteLine("Form match statistics:");
+			foreach (var stat in matchStats.OrderByDescending(stat => stat.Value))
+			{
+				Console.WriteLine($"- {stat.Key}: {stat.Value}");
+			}
+			Console.WriteLine();
 		}
 
 		static async Task BugTriage(Launchpad.Project project, IConfigurationSection config, References references)
@@ -728,6 +780,28 @@ namespace Open_Rails_Triage
 			}
 			return false;
 		}
+
+		static IEnumerable<string> GetLinks(IConfigurationSection config, string value)
+		{
+			var states = config.GetSection("links").GetChildren()
+				.SelectMany(linkConfig => linkConfig.GetChildren()
+					.Select(form => new GetLinkState(linkConfig.Key, form.Value, value.IndexOf(form.Value)))
+				)
+				.ToArray();
+			while (states.Any(state => state.Index >= 0))
+			{
+				var match = states.Where(state => state.Index >= 0).Min(state => state.Index);
+				for (var i = 0; i < states.Length; i++)
+				{
+					if (states[i].Index != match) continue;
+					yield return states[i].Key;
+					states[i].Index = value.IndexOf(states[i].Form, states[i].Index + states[i].Form.Length);
+					break;
+				}
+			}
+		}
+
+		record struct GetLinkState(string Key, string Form, int Index);
 
 		static bool IsValuePresentMissing(IConfigurationSection config, params string[] values)
 		{

@@ -26,7 +26,79 @@
 	},
 	"github": {
 		"organization": "openrails",
-		"repository": "openrails"
+		"repository": "openrails",
+		"links": {
+			"blueprint": {
+				"1": "https://blueprints.launchpad.net/or/+spec/"
+			},
+			"bug": {
+				"1": "https://bugs.launchpad.net/or/+bug/"
+			},
+			"discussion": {
+				"1": "https://www.elvastower.com/forums/index.php?/topic/",
+				"2": "http://www.elvastower.com/forums/index.php?/topic/"
+			},
+			"roadmap": {
+				"1": "https://trello.com/c/"
+			}
+		},
+		"pullRequests": {
+			"filter": {},
+			"forms": {
+				"bug-small": {
+					"labels": { "$any": "bug" },
+					"linesAdded": { "$le": 10 },
+					"linesDeleted": { "$le": 10 }
+				},
+				"bug": {
+					"$required": {
+						"labels": { "$any": "bug" }
+					},
+					"$optional": {
+						"$or": {
+							"1": { "links": { "$any": "discussion" } },
+							"2": { "links": { "$any": "roadmap" } },
+							"3": { "links": { "$any": "blueprint" } },
+							"4": { "links": { "$any": "bug" } }
+						}
+					}
+				},
+				"enhancement": {
+					"$required": {
+						"labels": { "$any": "enhancement" }
+					},
+					"$optional": {
+						"$or": {
+							"1": { "links": { "$any": "discussion" } },
+							"2": { "links": { "$any": "roadmap" } },
+							"3": { "links": { "$any": "blueprint" } }
+						}
+					}
+				},
+				"contributed": {
+					"paths": { "$startsWith": "Source/Contrib/" }
+				},
+				"locales": {
+					"paths": { "$startsWith": "Sources/Locales/" }
+				},
+				"website": {
+					"paths": { "$startsWith": "Website/" }
+				},
+				"exceptional": {
+					"$or": {
+						"1": { "labels": { "$any": "documentation" } },
+						"2": { "labels": { "$any": "duplicate" } },
+						"3": { "labels": { "$any": "infrastructure" } },
+						"4": { "labels": { "$any": "invalid" } },
+						"5": { "labels": { "$any": "locales" } },
+						"6": { "labels": { "$any": "question" } },
+						"7": { "labels": { "$any": "refactoring" } },
+						"8": { "labels": { "$any": "website" } },
+						"9": { "labels": { "$any": "wontfix" } }
+					}
+				}
+			}
+		}
 	},
 	"launchpad": {
 		"projectUrl": "https://api.launchpad.net/devel/or",

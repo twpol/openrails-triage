@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 
@@ -22,6 +23,12 @@ namespace Open_Rails_Triage.GitHub
 		{
 			if (!IsEnabled) return false;
 			return commit.Message.StartsWith(COMMIT_PULL_REQUEST_MERGE_PREFIX);
+		}
+
+		public async IAsyncEnumerable<GraphPullRequest> GetPullRequests()
+		{
+			if (!IsEnabled) yield break;
+			await foreach (var item in Query.GetPullRequests(Config["organization"], Config["repository"])) yield return item;
 		}
 
 		public async Task<GraphPullRequest> GetPullRequest(Git.Commit commit)
